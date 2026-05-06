@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="WC2026">
+<meta name="theme-color" content="#07101f">
+<title>WC 2026 Predictor</title>
+<link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #07101f;
+  --bg2: #0c1829;
+  --card: #111e30;
+  --card2: #172539;
+  --border: #1c2e47;
+  --gold: #f5c518;
+  --gold-dim: #b8940f;
+  --sky: #38bdf8;
+  --green: #22c55e;
+  --red: #ef4444;
+  --amber: #f59e0b;
+  --text: #e2eaf5;
+  --muted: #5a7a9c;
+  --tab-h: 60px;
+}
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { height:100%; overflow-x:hidden; }
+body {
+  font-family:'DM Sans',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  padding-bottom:calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
+  font-size:15px;
+}
+
+/* ── LOADER ─────────────────────────────────────── */
+#loader {
+  position:fixed; inset:0; background:var(--bg);
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:16px; z-index:1000;
+}
+#loader h1 { font-family:'Bebas Neue',sans-serif; font-size:2.4em; letter-spacing:.06em; }
+#loader h1 span { color:var(--gold); }
+#loader p { color:var(--muted); font-size:.85em; }
+.loader-ring {
+  width:40px; height:40px;
+  border:3px solid var(--border);
+  border-top-color:var(--gold);
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+#loader-status { font-family:'JetBrains Mono',monospace; font-size:.75em; color:var(--gold); }
+
+/* ── SETUP ─────────────────────────────────────── */
+#setup {
+  position:fixed; inset:0; background:var(--bg);
+  display:none; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:28px; z-index:999;
+}
+#setup.show { display:flex; }
+.setup-icon { font-size:3.2em; margin-bottom:10px; }
+#setup h2 { font-family:'Bebas Neue',sans-serif; font-size:1.9em; letter-spacing:.05em; margin-bottom:6px; }
+#setup h2 span { color:var(--gold); }
+#setup p { color:var(--muted); font-size:.85em; line-height:1.6; text-align:center; margin-bottom:24px; max-width:320px; }
+.setup-input {
+  width:100%; background:var(--card);
+  border:1px solid var(--border); border-radius:10px;
+  color:var(--text); padding:13px 16px;
+  font-family:'JetBrains Mono',monospace; font-size:.85em;
+  outline:none; margin-bottom:10px; transition:border-color .2s;
+}
+.setup-input:focus { border-color:var(--gold); }
+.setup-btn {
+  width:100%; background:var(--gold); color:#07101f;
+  border:none; border-radius:10px; padding:14px;
+  font-family:'Bebas Neue',sans-serif; font-size:1.1em;
+  letter-spacing:.12em; cursor:pointer;
+  transition:opacity .15s;
+}
+.setup-btn:active { opacity:.8; }
+.setup-link { color:var(--sky); font-size:.75em; margin-top:14px; }
+
+/* ── HEADER ─────────────────────────────────────── */
+.header {
+  background:linear-gradient(180deg,#0b1930 0%,var(--bg) 100%);
+  padding:14px 18px 12px;
+  display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid var(--border);
+  position:sticky; top:0; z-index:100;
+}
+.header-title { font-family:'Bebas Neue',sans-serif; font-size:1.45em; letter-spacing:.05em; }
+.header-title span { color:var(--gold); }
+.header-right { display:flex; align-items:center; gap:8px; }
+.live-pill {
+  display:flex; align-items:center; gap:5px;
+  font-size:.68em; color:var(--muted);
+  background:rgba(34,197,94,.08);
+  border:1px solid rgba(34,197,94,.15);
+  border-radius:20px; padding:3px 9px;
+}
+.live-dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+.refresh-icon {
+  background:none; border:1px solid var(--border);
+  border-radius:8px; color:var(--muted);
+  padding:6px; cursor:pointer; display:flex;
+  align-items:center; transition:border-color .2s;
+}
+.refresh-icon:active { border-color:var(--gold); }
+
+/* ── TABS ─────────────────────────────────────── */
+.tab-bar {
+  position:fixed; bottom:0; left:0; right:0;
+  height:var(--tab-h); background:var(--card);
+  border-top:1px solid var(--border);
+  display:flex; z-index:200;
+  padding-bottom:env(safe-area-inset-bottom, 0px);
+}
+.tab {
+  flex:1; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:3px; background:none; border:none;
+  color:var(--muted); font-family:'DM Sans',sans-serif;
+  font-size:9px; font-weight:500;
+  letter-spacing:.04em; text-transform:uppercase;
+  cursor:pointer; transition:color .2s; padding-bottom:2px;
+}
+.tab.on { color:var(--gold); }
+.tab svg { width:19px; height:19px; }
+
+/* ── PAGES ─────────────────────────────────────── */
+.page { display:none; padding:16px; animation:fadeUp .2s ease; }
+.page.on { display:block; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── CARDS ─────────────────────────────────────── */
+.card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+.card-h { font-family:'Bebas Neue',sans-serif; font-size:.9em; letter-spacing:.12em; color:var(--muted); text-transform:uppercase; margin-bottom:10px; }
+
+/* ── CHAMPION BANNER ────────────────────────────── */
+.champ-banner {
+  background:linear-gradient(135deg,#0f2010,#091c10,var(--card));
+  border:1px solid rgba(245,197,24,.2);
+  border-radius:14px; padding:20px 16px;
+  text-align:center; margin-bottom:12px;
+  position:relative; overflow:hidden;
+}
+.champ-banner::after {
+  content:'★'; position:absolute;
+  font-size:90px; opacity:.04;
+  right:-10px; top:-15px;
+}
+.champ-label { font-size:.68em; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); margin-bottom:5px; }
+.champ-flag { font-size:2em; margin-bottom:3px; display:block; }
+.champ-name { font-family:'Bebas Neue',sans-serif; font-size:2.3em; letter-spacing:.04em; line-height:1; }
+.champ-prob { font-family:'JetBrains Mono',monospace; font-size:.88em; color:var(--gold); margin-top:5px; }
+
+/* ── PROB BARS ─────────────────────────────────── */
+.prob-row { display:flex; align-items:center; gap:8px; margin-bottom:7px; }
+.prob-name { font-size:.8em; flex-shrink:0; width:96px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.prob-track { flex:1; background:var(--bg2); border-radius:4px; height:7px; overflow:hidden; }
+.prob-fill { height:100%; border-radius:4px; transition:width 1.2s cubic-bezier(.25,.8,.25,1); }
+.prob-pct { font-family:'JetBrains Mono',monospace; font-size:.75em; color:var(--muted); width:38px; text-align:right; flex-shrink:0; }
+
+/* ── GROUP CARDS ────────────────────────────────── */
+.group-block { background:var(--card); border:1px solid var(--border); border-radius:12px; margin-bottom:14px; overflow:hidden; }
+.group-hdr { background:linear-gradient(90deg,var(--card2),var(--card)); padding:9px 14px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+.group-letter { font-family:'Bebas Neue',sans-serif; font-size:1.05em; letter-spacing:.1em; }
+.group-letter em { color:var(--gold); font-style:normal; }
+.g-sub { font-size:.68em; color:var(--muted); }
+.st-table { width:100%; font-size:.78em; border-collapse:collapse; }
+.st-table th { padding:6px 10px 5px; text-align:center; color:var(--muted); font-weight:500; font-size:.88em; border-bottom:1px solid var(--border); }
+.st-table th:first-child { text-align:left; padding-left:14px; }
+.st-table td { padding:7px 10px; text-align:center; border-bottom:1px solid rgba(28,46,71,.7); }
+.st-table td:first-child { text-align:left; padding-left:14px; }
+.st-table tr:last-child td { border-bottom:none; }
+.qual-row td { background:rgba(34,197,94,.05); }
+.third-row td { background:rgba(56,189,248,.04); }
+.t-cell { display:flex; align-items:center; gap:6px; }
+.t-flag { font-size:1.1em; }
+.t-inj { font-size:.65em; padding:1px 5px; border-radius:3px; background:rgba(245,158,11,.2); color:var(--amber); font-weight:700; }
+.pct-val { font-family:'JetBrains Mono',monospace; font-size:.85em; }
+.pct-hi { color:var(--green); }
+.pct-mid { color:var(--amber); }
+.pct-lo { color:var(--red); }
+
+/* ── MATCH CHIPS ─────────────────────────────────── */
+.match-list { padding:6px 6px 4px; }
+.match-chip { background:var(--bg2); border-radius:8px; padding:9px 11px; margin-bottom:5px; }
+.match-row { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+.m-team { flex:1; text-align:center; font-size:.78em; }
+.m-flag { font-size:1.15em; display:block; margin-bottom:1px; }
+.m-name { display:block; color:var(--text); font-size:.95em; }
+.m-vs { font-size:.68em; color:var(--muted); flex-shrink:0; }
+.m-score { font-family:'JetBrains Mono',monospace; font-size:1em; font-weight:600; color:var(--gold); flex-shrink:0; }
+.m-date { font-size:.65em; color:var(--muted); flex-shrink:0; }
+.m-probs { display:flex; gap:5px; font-family:'JetBrains Mono',monospace; font-size:.67em; }
+.mp-w { color:var(--green); }
+.mp-d { color:var(--muted); }
+.mp-l { color:var(--red); }
+
+/* ── BRACKET ─────────────────────────────────────── */
+.round-block { margin-bottom:22px; }
+.round-label { font-family:'Bebas Neue',sans-serif; font-size:1em; letter-spacing:.12em; color:var(--gold); margin-bottom:9px; padding:0 1px; }
+.bk-match { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:11px 13px; margin-bottom:8px; }
+.bk-team { display:flex; align-items:center; justify-content:space-between; padding:4px 0; font-size:.85em; }
+.bk-team + .bk-team { border-top:1px solid var(--border); }
+.bk-left { display:flex; align-items:center; gap:7px; }
+.bk-pct { font-family:'JetBrains Mono',monospace; font-size:.75em; color:var(--muted); }
+.bk-winner { color:var(--gold); font-weight:600; }
+.bk-winner .bk-pct { color:var(--gold-dim); }
+.final-match { border-color:rgba(245,197,24,.35); background:linear-gradient(135deg,#141e0b,var(--card)); }
+
+/* ── ODDS ─────────────────────────────────────── */
+.odds-hdr { display:flex; padding:7px 13px; background:var(--card2); font-size:.68em; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+.odds-row { display:flex; align-items:center; padding:9px 13px; border-bottom:1px solid rgba(28,46,71,.6); gap:6px; font-size:.78em; }
+.odds-row:last-child { border-bottom:none; }
+.odds-matchup { flex:1; }
+.odds-matchup strong { display:block; font-size:.9em; color:var(--text); }
+.odds-matchup span { color:var(--muted); font-size:.8em; }
+.o-num { font-family:'JetBrains Mono',monospace; font-size:.83em; width:44px; text-align:right; flex-shrink:0; }
+.o-model { color:var(--sky); }
+.o-market { color:var(--muted); }
+.d-pos { color:var(--green); font-weight:600; }
+.d-neg { color:var(--red); font-weight:600; }
+.d-flat { color:var(--muted); }
+
+/* ── ACCURACY ─────────────────────────────────── */
+.metrics-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+.m-tile { background:var(--card2); border:1px solid var(--border); border-radius:10px; padding:13px 10px; text-align:center; }
+.m-lbl { font-size:.66em; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+.m-big { font-family:'Bebas Neue',sans-serif; font-size:1.9em; line-height:1; margin-bottom:3px; }
+.m-sub { font-size:.66em; color:var(--muted); }
+.c-green { color:var(--green); }
+.c-amber { color:var(--amber); }
+.c-red { color:var(--red); }
+.c-sky { color:var(--sky); }
+
+/* ── UTIL ─────────────────────────────────────── */
+.sec-label { font-size:.68em; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:14px 0 7px; padding:0 1px; display:block; }
+.badge { display:inline-block; font-size:.67em; padding:2px 6px; border-radius:3px; font-weight:700; letter-spacing:.04em; }
+.b-out { background:rgba(239,68,68,.18); color:var(--red); }
+.b-doubt { background:rgba(245,158,11,.18); color:var(--amber); }
+.injury-row { display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid rgba(28,46,71,.6); font-size:.82em; }
+.injury-row:last-child { border-bottom:none; }
+.inj-left { display:flex; align-items:center; gap:7px; }
+.inj-right { display:flex; align-items:center; gap:6px; }
+.inj-team { font-size:.8em; color:var(--muted); }
+.page-title { font-family:'Bebas Neue',sans-serif; font-size:1.5em; letter-spacing:.05em; margin-bottom:14px; }
+.page-title span { color:var(--gold); }
+.last-up { font-size:.68em; color:var(--muted); text-align:center; padding:6px 0 10px; }
+.empty-state { text-align:center; padding:32px 16px; color:var(--muted); font-size:.85em; line-height:1.7; }
+.big-btn { width:100%; background:none; border:1px solid var(--border); border-radius:10px; color:var(--muted); padding:13px; font-family:'DM Sans',sans-serif; font-size:.85em; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:border-color .2s; }
+.big-btn:active { border-color:var(--gold); color:var(--gold); }
+.model-info div { padding:4px 0; font-size:.82em; color:var(--muted); border-bottom:1px solid rgba(28,46,71,.5); }
+.model-info div:last-child { border-bottom:none; }
+.model-info strong { color:var(--text); }
+.error-box { background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.2); border-radius:10px; padding:12px 14px; font-size:.8em; color:#fca5a5; margin-bottom:10px; text-align:center; }
+.highlight-top { background:linear-gradient(90deg,rgba(245,197,24,.06),transparent); }
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="loader">
+  <div>⚽</div>
+  <h1>WC <span>2026</span></h1>
+  <div class="loader-ring"></div>
+  <p>Dixon-Coles Model</p>
+  <div id="loader-status">Initialising...</div>
+</div>
+
+<!-- SETUP -->
+<div id="setup">
+  <div class="setup-icon">⚽</div>
+  <h2>WC <span>2026</span> Predictor</h2>
+  <p>Enter your free BALLDONTLIE API key to connect live World Cup scores, results and betting odds.</p>
+  <input class="setup-input" id="api-input" type="text" placeholder="Paste BALLDONTLIE API key here" autocomplete="off" autocorrect="off" spellcheck="false">
+  <button class="setup-btn" onclick="handleSetup()">LAUNCH APP</button>
+  <a class="setup-link" href="https://app.balldontlie.io" target="_blank">Get free key at app.balldontlie.io</a>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-title">WC <span>2026</span></div>
+  <div class="header-right">
+    <div class="live-pill"><div class="live-dot"></div><span id="live-ts">Live</span></div>
+    <button class="refresh-icon" onclick="doRefresh()" title="Refresh live data">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- PAGES -->
+<div class="page on" id="pg-board"></div>
+<div class="page" id="pg-groups"></div>
+<div class="page" id="pg-bracket"></div>
+<div class="page" id="pg-odds"></div>
+<div class="page" id="pg-stats"></div>
+
+<!-- TABS -->
+<nav class="tab-bar">
+  <button class="tab on" id="t-board" onclick="go('board')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    Board
+  </button>
+  <button class="tab" id="t-groups" onclick="go('groups')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.85"/></svg>
+    Groups
+  </button>
+  <button class="tab" id="t-bracket" onclick="go('bracket')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Bracket
+  </button>
+  <button class="tab" id="t-odds" onclick="go('odds')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+    Odds
+  </button>
+  <button class="tab" id="t-stats" onclick="go('stats')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+    Stats
+  </button>
+</nav>
+
+<script>
+// ════════════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════════════
+const API_BASE = 'https://api.balldontlie.io/fifa/worldcup/v1';
+let API_KEY = localStorage.getItem('bdl_key') || '';
+
+// ════════════════════════════════════════════════════════
+// TEAM DATA  (Elo ratings as of May 2026)
+// ════════════════════════════════════════════════════════
+const T = {
+  'France':         { e:2062, f:'🇫🇷', g:'I' },
+  'Spain':          { e:2057, f:'🇪🇸', g:'H' },
+  'Argentina':      { e:2050, f:'🇦🇷', g:'J' },
+  'England':        { e:2031, f:'🏴󠁧󠁢󠁥󠁮󠁧󠁿', g:'L' },
+  'Germany':        { e:2019, f:'🇩🇪', g:'E' },
+  'Brazil':         { e:2008, f:'🇧🇷', g:'C' },
+  'Portugal':       { e:2014, f:'🇵🇹', g:'K' },
+  'Netherlands':    { e:1991, f:'🇳🇱', g:'F' },
+  'Belgium':        { e:1981, f:'🇧🇪', g:'G' },
+  'Uruguay':        { e:1931, f:'🇺🇾', g:'H' },
+  'Croatia':        { e:1921, f:'🇭🇷', g:'L' },
+  'Morocco':        { e:1912, f:'🇲🇦', g:'C' },
+  'Mexico':         { e:1924, f:'🇲🇽', g:'A', ha:60 },
+  'Colombia':       { e:1883, f:'🇨🇴', g:'K' },
+  'Canada':         { e:1862, f:'🇨🇦', g:'B', ha:40 },
+  'Austria':        { e:1862, f:'🇦🇹', g:'J' },
+  'Senegal':        { e:1873, f:'🇸🇳', g:'I' },
+  'Norway':         { e:1852, f:'🇳🇴', g:'I' },
+  'United States':  { e:1884, f:'🇺🇸', g:'D', ha:40 },
+  'Switzerland':    { e:1893, f:'🇨🇭', g:'B' },
+  'Japan':          { e:1898, f:'🇯🇵', g:'F' },
+  'Sweden':         { e:1872, f:'🇸🇪', g:'F' },
+  'South Korea':    { e:1835, f:'🇰🇷', g:'A' },
+  'Australia':      { e:1839, f:'🇦🇺', g:'D' },
+  'Ecuador':        { e:1822, f:'🇪🇨', g:'E' },
+  'Ivory Coast':    { e:1821, f:'🇨🇮', g:'E' },
+  'Czechia':        { e:1843, f:'🇨🇿', g:'A' },
+  'Turkiye':        { e:1843, f:'🇹🇷', g:'D' },
+  'Egypt':          { e:1800, f:'🇪🇬', g:'G' },
+  'Algeria':        { e:1800, f:'🇩🇿', g:'J' },
+  'Scotland':       { e:1798, f:'🏴󠁧󠁢󠁳󠁣󠁴󠁿', g:'C' },
+  'Bosnia and Herzegovina': { e:1798, f:'🇧🇦', g:'B' },
+  'Iran':           { e:1793, f:'🇮🇷', g:'G' },
+  'Paraguay':       { e:1793, f:'🇵🇾', g:'D' },
+  'DR Congo':       { e:1793, f:'🇨🇩', g:'K' },
+  'Tunisia':        { e:1788, f:'🇹🇳', g:'F' },
+  'Cape Verde':     { e:1768, f:'🇨🇻', g:'H' },
+  'Ghana':          { e:1769, f:'🇬🇭', g:'L' },
+  'South Africa':   { e:1748, f:'🇿🇦', g:'A' },
+  'Panama':         { e:1749, f:'🇵🇦', g:'L' },
+  'Saudi Arabia':   { e:1754, f:'🇸🇦', g:'H' },
+  'Iraq':           { e:1751, f:'🇮🇶', g:'I' },
+  'New Zealand':    { e:1720, f:'🇳🇿', g:'G' },
+  'Qatar':          { e:1720, f:'🇶🇦', g:'B' },
+  'Jordan':         { e:1721, f:'🇯🇴', g:'J' },
+  'Uzbekistan':     { e:1701, f:'🇺🇿', g:'K' },
+  'Haiti':          { e:1681, f:'🇭🇹', g:'C' },
+  'Curacao':        { e:1672, f:'🇨🇼', g:'E' },
+};
+
+// ════════════════════════════════════════════════════════
+// INJURY ADJUSTMENTS  (Elo equivalent reductions)
+// ════════════════════════════════════════════════════════
+const INJ = {
+  'Brazil':        { adj:-28, list:['Rodrygo (OUT)','Militao (OUT)','Estevao (DOUBT)'] },
+  'Germany':       { adj:-12, list:['Gnabry (OUT)','ter Stegen (DOUBT)'] },
+  'Argentina':     { adj:-10, list:['Foyth (OUT)','Romero (DOUBT)'] },
+  'England':       { adj:-12, list:['Saka (DOUBT)','Havertz (DOUBT)'] },
+  'Netherlands':   { adj:-8,  list:['Simons (OUT)'] },
+  'Japan':         { adj:-5,  list:['Minamino (OUT)'] },
+  'Ghana':         { adj:-14, list:['Kudus (OUT)','Salisu (OUT)'] },
+  'Morocco':       { adj:-7,  list:['Hakimi (DOUBT)'] },
+  'Mexico':        { adj:-12, list:['Malagon (OUT)','Alvarez (DOUBT)'] },
+  'Croatia':       { adj:-8,  list:['Gvardiol (DOUBT)'] },
+};
+
+function adjElo(name) {
+  return (T[name]?.e || 1750) + (INJ[name]?.adj || 0);
+}
+
+// ════════════════════════════════════════════════════════
+// FIXTURES
+// ════════════════════════════════════════════════════════
+const FIX = {
+  A:[
+    {h:'Mexico',a:'South Africa',d:'Jun 11'},
+    {h:'South Korea',a:'Czechia',d:'Jun 11'},
+    {h:'Mexico',a:'South Korea',d:'Jun 15'},
+    {h:'South Africa',a:'Czechia',d:'Jun 15'},
+    {h:'Czechia',a:'Mexico',d:'Jun 19'},
+    {h:'South Africa',a:'South Korea',d:'Jun 19'},
+  ],
+  B:[
+    {h:'Canada',a:'Bosnia and Herzegovina',d:'Jun 11'},
+    {h:'Qatar',a:'Switzerland',d:'Jun 12'},
+    {h:'Canada',a:'Qatar',d:'Jun 16'},
+    {h:'Bosnia and Herzegovina',a:'Switzerland',d:'Jun 16'},
+    {h:'Switzerland',a:'Canada',d:'Jun 20'},
+    {h:'Bosnia and Herzegovina',a:'Qatar',d:'Jun 20'},
+  ],
+  C:[
+    {h:'Brazil',a:'Morocco',d:'Jun 12'},
+    {h:'Haiti',a:'Scotland',d:'Jun 12'},
+    {h:'Brazil',a:'Haiti',d:'Jun 16'},
+    {h:'Morocco',a:'Scotland',d:'Jun 16'},
+    {h:'Scotland',a:'Brazil',d:'Jun 20'},
+    {h:'Morocco',a:'Haiti',d:'Jun 20'},
+  ],
+  D:[
+    {h:'United States',a:'Paraguay',d:'Jun 12'},
+    {h:'Australia',a:'Turkiye',d:'Jun 13'},
+    {h:'United States',a:'Australia',d:'Jun 17'},
+    {h:'Paraguay',a:'Turkiye',d:'Jun 17'},
+    {h:'Turkiye',a:'United States',d:'Jun 21'},
+    {h:'Paraguay',a:'Australia',d:'Jun 21'},
+  ],
+  E:[
+    {h:'Germany',a:'Curacao',d:'Jun 13'},
+    {h:'Ivory Coast',a:'Ecuador',d:'Jun 13'},
+    {h:'Germany',a:'Ivory Coast',d:'Jun 17'},
+    {h:'Curacao',a:'Ecuador',d:'Jun 17'},
+    {h:'Ecuador',a:'Germany',d:'Jun 21'},
+    {h:'Ivory Coast',a:'Curacao',d:'Jun 21'},
+  ],
+  F:[
+    {h:'Netherlands',a:'Japan',d:'Jun 13'},
+    {h:'Sweden',a:'Tunisia',d:'Jun 14'},
+    {h:'Netherlands',a:'Sweden',d:'Jun 18'},
+    {h:'Japan',a:'Tunisia',d:'Jun 18'},
+    {h:'Tunisia',a:'Netherlands',d:'Jun 22'},
+    {h:'Japan',a:'Sweden',d:'Jun 22'},
+  ],
+  G:[
+    {h:'Belgium',a:'Egypt',d:'Jun 14'},
+    {h:'Iran',a:'New Zealand',d:'Jun 14'},
+    {h:'Belgium',a:'Iran',d:'Jun 18'},
+    {h:'Egypt',a:'New Zealand',d:'Jun 18'},
+    {h:'New Zealand',a:'Belgium',d:'Jun 22'},
+    {h:'Egypt',a:'Iran',d:'Jun 22'},
+  ],
+  H:[
+    {h:'Spain',a:'Cape Verde',d:'Jun 14'},
+    {h:'Saudi Arabia',a:'Uruguay',d:'Jun 15'},
+    {h:'Spain',a:'Saudi Arabia',d:'Jun 19'},
+    {h:'Cape Verde',a:'Uruguay',d:'Jun 19'},
+    {h:'Uruguay',a:'Spain',d:'Jun 23'},
+    {h:'Cape Verde',a:'Saudi Arabia',d:'Jun 23'},
+  ],
+  I:[
+    {h:'France',a:'Senegal',d:'Jun 15'},
+    {h:'Iraq',a:'Norway',d:'Jun 15'},
+    {h:'France',a:'Iraq',d:'Jun 19'},
+    {h:'Senegal',a:'Norway',d:'Jun 19'},
+    {h:'Norway',a:'France',d:'Jun 23'},
+    {h:'Senegal',a:'Iraq',d:'Jun 23'},
+  ],
+  J:[
+    {h:'Argentina',a:'Algeria',d:'Jun 15'},
+    {h:'Austria',a:'Jordan',d:'Jun 16'},
+    {h:'Argentina',a:'Austria',d:'Jun 20'},
+    {h:'Algeria',a:'Jordan',d:'Jun 20'},
+    {h:'Jordan',a:'Argentina',d:'Jun 24'},
+    {h:'Algeria',a:'Austria',d:'Jun 24'},
+  ],
+  K:[
+    {h:'Portugal',a:'DR Congo',d:'Jun 16'},
+    {h:'Uzbekistan',a:'Colombia',d:'Jun 16'},
+    {h:'Portugal',a:'Uzbekistan',d:'Jun 20'},
+    {h:'DR Congo',a:'Colombia',d:'Jun 20'},
+    {h:'Colombia',a:'Portugal',d:'Jun 24'},
+    {h:'DR Congo',a:'Uzbekistan',d:'Jun 24'},
+  ],
+  L:[
+    {h:'England',a:'Croatia',d:'Jun 16'},
+    {h:'Ghana',a:'Panama',d:'Jun 17'},
+    {h:'England',a:'Ghana',d:'Jun 21'},
+    {h:'Croatia',a:'Panama',d:'Jun 21'},
+    {h:'Panama',a:'England',d:'Jun 25'},
+    {h:'Croatia',a:'Ghana',d:'Jun 25'},
+  ],
+};
+
+// ════════════════════════════════════════════════════════
+// DIXON-COLES MODEL
+// ════════════════════════════════════════════════════════
+function ppf(lambda, k) {
+  if (lambda <= 0) return k === 0 ? 1 : 0;
+  let lp = -lambda + k * Math.log(lambda);
+  for (let i = 1; i <= k; i++) lp -= Math.log(i);
+  return Math.exp(lp);
+}
+
+function tau(x, y, mu, nu, rho) {
+  if (x===0&&y===0) return Math.max(1e-5, 1 - mu*nu*rho);
+  if (x===0&&y===1) return 1 + mu*rho;
+  if (x===1&&y===0) return 1 + nu*rho;
+  if (x===1&&y===1) return Math.max(1e-5, 1 - rho);
+  return 1;
+}
+
+function matchP(hn, an) {
+  const ha = T[hn]?.ha || 0;
+  const diff = (adjElo(hn) + ha) - adjElo(an);
+  const mu = Math.exp(0.31 + diff / 630);
+  const nu = Math.exp(0.31 - diff / 630);
+  const rho = -0.115;
+  let w=0, d=0, l=0;
+  for (let i=0; i<=7; i++) {
+    for (let j=0; j<=7; j++) {
+      const p = ppf(mu,i) * ppf(nu,j) * tau(i,j,mu,nu,rho);
+      if (i>j) w+=p; else if (i===j) d+=p; else l+=p;
+    }
+  }
+  const tot = w+d+l;
+  return { w:w/tot, d:d/tot, l:l/tot };
+}
+
+function koP(an, bn) {
+  const p = matchP(an, bn);
+  return p.w + p.d * 0.5;
+}
+
+// ════════════════════════════════════════════════════════
+// GROUP QUALIFICATION PROBABILITIES
+// ════════════════════════════════════════════════════════
+function groupQualProbs(N=2000) {
+  const res = {};
+  for (const [g, fixes] of Object.entries(FIX)) {
+    const teams = Object.keys(T).filter(t => T[t].g === g);
+    const q = {}; teams.forEach(t => q[t]=0);
+    for (let s=0; s<N; s++) {
+      const pts={}, gd={};
+      teams.forEach(t => { pts[t]=0; gd[t]=0; });
+      for (const f of fixes) {
+        const p = matchP(f.h, f.a);
+        const r = Math.random();
+        if (r < p.w) { pts[f.h]+=3; gd[f.h]++; gd[f.a]--; }
+        else if (r < p.w+p.d) { pts[f.h]+=1; pts[f.a]+=1; }
+        else { pts[f.a]+=3; gd[f.a]++; gd[f.h]--; }
+      }
+      const ranked = [...teams].sort((a,b) => pts[b]-pts[a] || gd[b]-gd[a]);
+      q[ranked[0]]++; q[ranked[1]]++;
+    }
+    res[g] = teams
+      .map(t => ({ t, qp:q[t]/N, elo:adjElo(t) }))
+      .sort((a,b) => b.qp-a.qp);
+  }
+  return res;
+}
+
+// ════════════════════════════════════════════════════════
+// MONTE CARLO TOURNAMENT
+// ════════════════════════════════════════════════════════
+function simTournament(N=5000) {
+  const wins = {}; Object.keys(T).forEach(t => wins[t]=0);
+  for (let s=0; s<N; s++) {
+    const grpR = {};
+    for (const [g, fixes] of Object.entries(FIX)) {
+      const teams = Object.keys(T).filter(t => T[t].g === g);
+      const pts={}, gd={}, gf={};
+      teams.forEach(t => { pts[t]=0; gd[t]=0; gf[t]=0; });
+      for (const f of fixes) {
+        const p = matchP(f.h, f.a);
+        const r = Math.random();
+        let hs, as_;
+        if (r < p.w) {
+          hs = Math.floor(Math.random()*3)+1;
+          as_ = Math.max(0, hs - Math.floor(Math.random()*2)-1);
+          pts[f.h]+=3;
+        } else if (r < p.w+p.d) {
+          hs = Math.floor(Math.random()*2);
+          as_ = hs;
+          pts[f.h]+=1; pts[f.a]+=1;
+        } else {
+          as_ = Math.floor(Math.random()*3)+1;
+          hs = Math.max(0, as_ - Math.floor(Math.random()*2)-1);
+          pts[f.a]+=3;
+        }
+        gf[f.h]+=hs; gf[f.a]+=as_;
+        gd[f.h]+=(hs-as_); gd[f.a]+=(as_-hs);
+      }
+      grpR[g] = [...teams].sort((a,b) => pts[b]-pts[a]||gd[b]-gd[a]||gf[b]-gf[a]);
+    }
+    const q = {};
+    const thirds = [];
+    for (const [g,ranked] of Object.entries(grpR)) {
+      q[g+'1']=ranked[0]; q[g+'2']=ranked[1];
+      thirds.push(ranked[2]);
+    }
+    const b8 = thirds.slice(0,8);
+    let r32 = [
+      [q.A1,q.B2],[q.C1,q.D2],[q.E1,q.F2],[q.G1,q.H2],
+      [q.I1,q.J2],[q.K1,q.L2],[q.A2,q.B1],[q.C2,q.D1],
+      [q.E2,q.F1],[q.G2,q.H1],[q.I2,q.J1],[q.K2,q.L1],
+      [b8[0],b8[1]],[b8[2],b8[3]],[b8[4],b8[5]],[b8[6],b8[7]],
+    ].filter(m=>m[0]&&m[1]);
+    let rem = r32.map(([a,b]) => Math.random() < koP(a,b) ? a : b);
+    while (rem.length>1) {
+      const nx=[];
+      for (let i=0; i<rem.length; i+=2) {
+        const a=rem[i], b=rem[i+1];
+        if (!b) { nx.push(a); continue; }
+        nx.push(Math.random() < koP(a,b) ? a : b);
+      }
+      rem=nx;
+    }
+    if (rem[0]) wins[rem[0]]++;
+  }
+  return Object.fromEntries(Object.entries(wins).map(([k,v])=>[k,v/N]));
+}
+
+// ════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════
+const S = {
+  champ:{}, qual:{},
+  results:[], odds:[],
+  acc:{ n:0, ok:0, brier:null },
+  ts:null, err:null,
+};
+
+// ════════════════════════════════════════════════════════
+// API
+// ════════════════════════════════════════════════════════
+function getCached(k, ttl=1800000) {
+  try {
+    const raw = localStorage.getItem('c_'+k);
+    if (!raw) return null;
+    const {d,t} = JSON.parse(raw);
+    return Date.now()-t < ttl ? d : null;
+  } catch { return null; }
+}
+function setCache(k,d) {
+  try { localStorage.setItem('c_'+k, JSON.stringify({d,t:Date.now()})); } catch {}
+}
+
+async function apiFetch(path) {
+  const cached = getCached(path);
+  if (cached) return cached;
+  const r = await fetch(API_BASE+path, { headers:{'Authorization':API_KEY} });
+  if (!r.ok) throw new Error(`${r.status}`);
+  const data = await r.json();
+  setCache(path, data);
+  return data;
+}
+
+async function loadLive() {
+  if (!API_KEY) return;
+  S.err = null;
+  try {
+    const [mRes, oRes] = await Promise.allSettled([
+      apiFetch('/matches?seasons[]=2026&per_page=200'),
+      apiFetch('/odds?seasons[]=2026&per_page=200'),
+    ]);
+    if (mRes.status==='fulfilled') {
+      S.results = (mRes.value.data||[]).filter(m=>m.home_team_score!==null&&m.home_team_score!==undefined);
+      calcAcc();
+    }
+    if (oRes.status==='fulfilled') S.odds = oRes.value.data||[];
+    S.ts = new Date();
+    document.getElementById('live-ts').textContent = S.ts.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  } catch(e) {
+    S.err = 'Could not reach BALLDONTLIE API. Predictions still run locally.';
+    console.warn('API error:', e);
+  }
+}
+
+function calcAcc() {
+  let ok=0, bSum=0, n=0;
+  for (const m of S.results) {
+    if (!m.home_team?.name || !m.away_team?.name) continue;
+    const p = matchP(m.home_team.name, m.away_team.name);
+    const hs=m.home_team_score, as_=m.away_team_score;
+    let pAct;
+    const actualW = hs>as_ ? 'w' : hs===as_ ? 'd' : 'l';
+    pAct = p[actualW];
+    const predMax = Math.max(p.w,p.d,p.l);
+    const predRes = predMax===p.w?'w':predMax===p.d?'d':'l';
+    if (predRes===actualW) ok++;
+    bSum += Math.pow(1-pAct,2);
+    n++;
+  }
+  S.acc = { n, ok, rate: n>0?ok/n:null, brier: n>0?bSum/n:null };
+}
+
+function findResult(hn, an) {
+  return S.results.find(r =>
+    (r.home_team?.name===hn && r.away_team?.name===an) ||
+    (r.home_team?.name===an && r.away_team?.name===hn)
+  );
+}
+
+function findOdds(hn, an) {
+  return S.odds.find(o =>
+    (o.home_team?.name===hn && o.away_team?.name===an) ||
+    (o.home_team?.name===an && o.away_team?.name===hn)
+  );
+}
+
+// ════════════════════════════════════════════════════════
+// RENDER: BOARD
+// ════════════════════════════════════════════════════════
+function renderBoard() {
+  const el = document.getElementById('pg-board');
+  const champ = Object.entries(S.champ).sort((a,b)=>b[1]-a[1]);
+  const top = champ[0];
+  const colors = ['var(--gold)','var(--sky)','#94a3b8','#64748b','#475569','#334155','#334155','#1e293b'];
+
+  el.innerHTML = `
+    ${top ? `
+    <div class="champ-banner">
+      <div class="champ-label">Predicted Champion</div>
+      <span class="champ-flag">${T[top[0]]?.f||''}</span>
+      <div class="champ-name">${top[0]}</div>
+      <div class="champ-prob">${(top[1]*100).toFixed(1)}% to win the World Cup</div>
+    </div>` : ''}
+
+    <div class="card">
+      <div class="card-h">Championship Probability</div>
+      ${champ.slice(0,8).map(([nm,pv],i)=>`
+      <div class="prob-row">
+        <div class="prob-name">${T[nm]?.f||''} ${nm.length>11?nm.slice(0,10)+'…':nm}</div>
+        <div class="prob-track"><div class="prob-fill" style="width:${Math.max(2,pv/(champ[0][1]||.01)*100)}%;background:${colors[i]}"></div></div>
+        <div class="prob-pct">${(pv*100).toFixed(1)}%</div>
+      </div>`).join('')}
+    </div>
+
+    <span class="sec-label">Injury Watch</span>
+    <div class="card">
+      ${Object.entries(INJ).flatMap(([team,data])=>
+        data.list.map(inj=>{
+          const isOut = inj.includes('OUT');
+          return `<div class="injury-row">
+            <div class="inj-left">
+              <span>${T[team]?.f||''}</span>
+              <span>${inj.split(' (')[0]}</span>
+            </div>
+            <div class="inj-right">
+              <span class="inj-team">${team}</span>
+              <span class="badge ${isOut?'b-out':'b-doubt'}">${isOut?'OUT':'DOUBT'}</span>
+            </div>
+          </div>`;
+        })
+      ).join('')}
+    </div>
+
+    ${S.err ? `<div class="error-box">⚠ ${S.err}</div>` : ''}
+    <div class="last-up">${S.ts?'Live data updated '+S.ts.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'Predictions computed locally'}</div>
+  `;
+}
+
+// ════════════════════════════════════════════════════════
+// RENDER: GROUPS
+// ════════════════════════════════════════════════════════
+function renderGroups() {
+  const el = document.getElementById('pg-groups');
+  el.innerHTML = `<div class="page-title">Group <span>Stage</span></div>` +
+  Object.keys(FIX).map(g => {
+    const rows = S.qual[g] || [];
+    const fixes = FIX[g];
+    const fav = rows[0]?.t || '';
+    return `
+    <div class="group-block">
+      <div class="group-hdr">
+        <div class="group-letter">Group <em>${g}</em></div>
+        <div class="g-sub">${fav?T[fav]?.f+' '+fav:''}</div>
+      </div>
+      <table class="st-table">
+        <thead><tr><th>Team</th><th>Elo</th><th>Qual%</th></tr></thead>
+        <tbody>
+          ${rows.map((r,i)=>`
+          <tr class="${i<2?'qual-row':i===2?'third-row':''}">
+            <td><div class="t-cell">
+              <span class="t-flag">${T[r.t]?.f||''}</span>
+              <span>${r.t}</span>
+              ${INJ[r.t]?'<span class="t-inj">INJ</span>':''}
+            </div></td>
+            <td class="pct-val">${r.elo}</td>
+            <td class="${r.qp>.6?'pct-hi':r.qp>.3?'pct-mid':'pct-lo'} pct-val">${(r.qp*100).toFixed(0)}%</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="match-list">
+        ${fixes.map(f=>{
+          const pr = matchP(f.h, f.a);
+          const res = findResult(f.h, f.a);
+          return `
+          <div class="match-chip">
+            <div class="match-row">
+              <div class="m-team">
+                <span class="m-flag">${T[f.h]?.f||''}</span>
+                <span class="m-name">${f.h.split(' ').pop()}</span>
+              </div>
+              ${res
+                ? `<span class="m-score">${res.home_team?.name===f.h?res.home_team_score:res.away_team_score}–${res.home_team?.name===f.h?res.away_team_score:res.home_team_score}</span>`
+                : `<span class="m-date">${f.d}</span>`
+              }
+              <div class="m-team">
+                <span class="m-flag">${T[f.a]?.f||''}</span>
+                <span class="m-name">${f.a.split(' ').pop()}</span>
+              </div>
+            </div>
+            ${!res?`<div class="m-probs">
+              <span class="mp-w">${(pr.w*100).toFixed(0)}%W</span>
+              <span style="color:var(--border)"> · </span>
+              <span class="mp-d">${(pr.d*100).toFixed(0)}%D</span>
+              <span style="color:var(--border)"> · </span>
+              <span class="mp-l">${(pr.l*100).toFixed(0)}%L</span>
+            </div>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════
+// RENDER: BRACKET
+// ════════════════════════════════════════════════════════
+function renderBracket() {
+  const el = document.getElementById('pg-bracket');
+  const champ = Object.entries(S.champ).sort((a,b)=>b[1]-a[1]);
+  const top2 = champ.slice(0,2);
+
+  el.innerHTML = `
+    <div class="page-title">Knockout <span>Bracket</span></div>
+
+    <div class="champ-banner">
+      <div class="champ-label">Model Predicts</div>
+      <span class="champ-flag">${champ[0]?T[champ[0][0]]?.f:''}</span>
+      <div class="champ-name">${champ[0]?champ[0][0]:'...'}</div>
+      <div class="champ-prob">${champ[0]?(champ[0][1]*100).toFixed(1)+'% to lift the trophy':''}</div>
+    </div>
+
+    ${[
+      {label:'Round of 32',slice:[0,16],pairs:8},
+      {label:'Round of 16',slice:[0,8],pairs:4},
+      {label:'Quarter-Finals 🏟',slice:[0,4],pairs:2},
+      {label:'Semi-Finals',slice:[0,2],pairs:1},
+    ].map(round=>`
+    <div class="round-block">
+      <div class="round-label">${round.label}</div>
+      ${Array.from({length:round.pairs},(_,i)=>{
+        const a = champ[round.slice[0]+i*2];
+        const b = champ[round.slice[0]+i*2+1];
+        if (!a||!b) return '';
+        return `
+        <div class="bk-match">
+          <div class="bk-team ${a[1]>b[1]?'bk-winner':''}">
+            <div class="bk-left"><span>${T[a[0]]?.f||''}</span><span>${a[0]}</span></div>
+            <div class="bk-pct">${(a[1]*100).toFixed(1)}%</div>
+          </div>
+          <div class="bk-team ${b[1]>a[1]?'bk-winner':''}">
+            <div class="bk-left"><span>${T[b[0]]?.f||''}</span><span>${b[0]}</span></div>
+            <div class="bk-pct">${(b[1]*100).toFixed(1)}%</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`).join('')}
+
+    <div class="round-block">
+      <div class="round-label">🏆 Final — MetLife Stadium, Jul 19</div>
+      ${top2.length===2?`
+      <div class="bk-match final-match">
+        ${top2.map(([nm,pv],i)=>`
+        <div class="bk-team ${i===0?'bk-winner':''}">
+          <div class="bk-left" style="font-size:1.05em">
+            <span style="font-size:1.2em">${T[nm]?.f||''}</span>
+            <strong>${nm}</strong>
+          </div>
+          <div class="bk-pct" style="font-size:.85em">${(pv*100).toFixed(1)}%</div>
+        </div>`).join('')}
+      </div>`:``}
+    </div>
+  `;
+}
+
+// ════════════════════════════════════════════════════════
+// RENDER: ODDS
+// ════════════════════════════════════════════════════════
+function renderOdds() {
+  const el = document.getElementById('pg-odds');
+  const allFixes = Object.values(FIX).flat();
+
+  el.innerHTML = `
+    <div class="page-title">Model <span>vs Market</span></div>
+    <div style="font-size:.75em;color:var(--muted);margin-bottom:12px;line-height:1.6">
+      Home win probability: model vs implied market odds. Green delta = model rates home team higher than market.
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="odds-hdr" style="gap:6px">
+        <div style="flex:1">Match</div>
+        <div style="width:44px;text-align:right">Model</div>
+        <div style="width:44px;text-align:right">Market</div>
+        <div style="width:42px;text-align:right">Delta</div>
+      </div>
+      ${allFixes.map(f=>{
+        const pr = matchP(f.h, f.a);
+        const od = findOdds(f.h, f.a);
+        let mktP = null;
+        if (od) {
+          const ml = od.home_moneyline || od.home_odds;
+          if (ml) mktP = ml>0 ? 100/(ml+100) : Math.abs(ml)/(Math.abs(ml)+100);
+        }
+        const delta = mktP !== null ? pr.w - mktP : null;
+        const dc = !delta?'d-flat':delta>.06?'d-pos':delta<-.06?'d-neg':'d-flat';
+        return `
+        <div class="odds-row">
+          <div class="odds-matchup">
+            <strong>${T[f.h]?.f||''} ${f.h.split(' ').pop()} vs ${f.a.split(' ').pop()} ${T[f.a]?.f||''}</strong>
+            <span>${f.d}</span>
+          </div>
+          <div class="o-num o-model">${(pr.w*100).toFixed(0)}%</div>
+          <div class="o-num o-market">${mktP!==null?(mktP*100).toFixed(0)+'%':'–'}</div>
+          <div class="o-num ${dc}">${delta!==null?(delta>0?'+':'')+(delta*100).toFixed(0)+'%':'–'}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="last-up">Market data from BALLDONTLIE API · ${S.ts?'Updated '+S.ts.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'API data not loaded'}</div>
+  `;
+}
+
+// ════════════════════════════════════════════════════════
+// RENDER: STATS
+// ════════════════════════════════════════════════════════
+function renderStats() {
+  const el = document.getElementById('pg-stats');
+  const a = S.acc;
+  const rc = a.rate===null?'c-sky':a.rate>=.55?'c-green':a.rate>=.45?'c-amber':'c-red';
+  const bc = a.brier===null?'c-sky':a.brier<=.20?'c-green':a.brier<=.25?'c-amber':'c-red';
+
+  el.innerHTML = `
+    <div class="page-title">Model <span>Stats</span></div>
+
+    ${a.n===0?`<div class="empty-state">⚽ No completed matches yet.<br>Stats update automatically after June 11.</div>`:''}
+
+    <div class="metrics-grid">
+      <div class="m-tile">
+        <div class="m-lbl">Accuracy</div>
+        <div class="m-big ${rc}">${a.rate!==null?(a.rate*100).toFixed(0)+'%':'–'}</div>
+        <div class="m-sub">Target 55–60%</div>
+      </div>
+      <div class="m-tile">
+        <div class="m-lbl">Brier Score</div>
+        <div class="m-big ${bc}">${a.brier!==null?a.brier.toFixed(3):'–'}</div>
+        <div class="m-sub">Target under 0.20</div>
+      </div>
+      <div class="m-tile">
+        <div class="m-lbl">Matches</div>
+        <div class="m-big c-sky">${a.n}</div>
+        <div class="m-sub">of 104 played</div>
+      </div>
+      <div class="m-tile">
+        <div class="m-lbl">Correct Picks</div>
+        <div class="m-big ${rc}">${a.ok}</div>
+        <div class="m-sub">Total correct</div>
+      </div>
+    </div>
+
+    <span class="sec-label">Benchmarks</span>
+    <div class="card">
+      ${[
+        {n:'FIFA Rankings',v:'52%'},
+        {n:'Naive (favorite wins)',v:'54%'},
+        {n:'Club Elo',v:'56%'},
+        {n:'Betting markets',v:'62%'},
+      ].map(b=>`
+      <div class="prob-row">
+        <div class="prob-name" style="width:148px;font-size:.76em">${b.n}</div>
+        <div class="prob-track">
+          <div class="prob-fill" style="width:${parseInt(b.v)}%;background:var(--border)"></div>
+        </div>
+        <div class="prob-pct">${b.v}</div>
+      </div>`).join('')}
+      ${a.rate?`
+      <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
+      <div class="prob-row">
+        <div class="prob-name" style="width:148px;font-size:.76em;color:var(--sky)">This model (live)</div>
+        <div class="prob-track">
+          <div class="prob-fill" style="width:${(a.rate*100).toFixed(0)}%;background:var(--sky)"></div>
+        </div>
+        <div class="prob-pct c-sky">${(a.rate*100).toFixed(0)}%</div>
+      </div></div>`:''}
+    </div>
+
+    <div class="card">
+      <div class="card-h">Model Configuration</div>
+      <div class="model-info">
+        <div><strong>Base model:</strong> Dixon-Coles (Alan Turing Institute variant)</div>
+        <div><strong>Simulation:</strong> 5,000 Monte Carlo iterations</div>
+        <div><strong>Inputs:</strong> Club Elo + injury adjustments + home advantage</div>
+        <div><strong>Injury data:</strong> Manual review, updated pre-tournament</div>
+        <div><strong>Live data:</strong> BALLDONTLIE FIFA World Cup API</div>
+        <div><strong>Group sims:</strong> 2,000 iterations per group</div>
+        <div><strong>Last computed:</strong> ${S.ts?S.ts.toLocaleString():'This session'}</div>
+      </div>
+    </div>
+
+    <button class="big-btn" onclick="doRefresh()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Refresh Live Data
+    </button>
+  `;
+}
+
+// ════════════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════════════
+const PAGES = {
+  board:  [renderBoard,  'pg-board',   't-board'],
+  groups: [renderGroups, 'pg-groups',  't-groups'],
+  bracket:[renderBracket,'pg-bracket', 't-bracket'],
+  odds:   [renderOdds,   'pg-odds',    't-odds'],
+  stats:  [renderStats,  'pg-stats',   't-stats'],
+};
+
+function go(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  document.getElementById(PAGES[name][1]).classList.add('on');
+  document.getElementById(PAGES[name][2]).classList.add('on');
+  PAGES[name][0]();
+}
+
+// ════════════════════════════════════════════════════════
+// SETUP FLOW
+// ════════════════════════════════════════════════════════
+function handleSetup() {
+  const key = document.getElementById('api-input').value.trim();
+  if (!key) { alert('Paste your BALLDONTLIE API key first.'); return; }
+  API_KEY = key;
+  localStorage.setItem('bdl_key', key);
+  document.getElementById('setup').classList.remove('show');
+  runApp();
+}
+
+// ════════════════════════════════════════════════════════
+// REFRESH
+// ════════════════════════════════════════════════════════
+async function doRefresh() {
+  Object.keys(localStorage).forEach(k => { if (k.startsWith('c_')) localStorage.removeItem(k); });
+  await loadLive();
+  const activeTab = document.querySelector('.tab.on')?.id?.replace('t-','') || 'board';
+  PAGES[activeTab][0]();
+}
+
+// ════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════
+function setStatus(msg) {
+  document.getElementById('loader-status').textContent = msg;
+}
+
+async function runApp() {
+  document.getElementById('loader').style.display = 'flex';
+  document.getElementById('setup').classList.remove('show');
+
+  await new Promise(r => setTimeout(r, 20));
+  setStatus('Running 5,000 tournament simulations...');
+  await new Promise(r => setTimeout(r, 30));
+  S.champ = simTournament(5000);
+
+  setStatus('Computing group qualification probabilities...');
+  await new Promise(r => setTimeout(r, 20));
+  S.qual = groupQualProbs(2000);
+
+  setStatus('Fetching live data from BALLDONTLIE...');
+  await loadLive();
+
+  setStatus('Ready!');
+  await new Promise(r => setTimeout(r, 200));
+
+  document.getElementById('loader').style.display = 'none';
+  renderBoard();
+}
+
+window.addEventListener('load', () => {
+  if (!API_KEY) {
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('setup').classList.add('show');
+  } else {
+    runApp();
+  }
+});
+</script>
+</body>
+</html>
