@@ -719,13 +719,18 @@ function parseResults(data, source) {
     let home='', away='', hs=null, as_=null;
 
     if (source === 'bdl') {
-      // BALLDONTLIE format
       home = normName(m.home_team?.name || '');
       away = normName(m.away_team?.name || '');
       hs   = m.home_team_score;
       as_  = m.away_team_score;
+    } else if (source === 'openfootball') {
+      // openfootball GitHub format: team1/team2, score.ft array
+      home = normName(m.team1 || '');
+      away = normName(m.team2 || '');
+      hs   = m.score?.ft?.[0] ?? null;
+      as_  = m.score?.ft?.[1] ?? null;
     } else {
-      // worldcup26.ir and similar free APIs - try every known field name
+      // worldcup26.ir fallback — try every known field name
       home = normName(
         m.homeTeam?.name || m.home_team?.name || m.home?.name ||
         m.homeTeam || m.home_team || m.home || m.team1 || ''
@@ -735,9 +740,9 @@ function parseResults(data, source) {
         m.awayTeam || m.away_team || m.away || m.team2 || ''
       );
       hs  = m.homeScore  ?? m.home_score  ?? m.score?.home  ??
-            m.goals?.home ?? m.score1 ?? m.result?.home ?? null;
+            m.score?.ft?.[0] ?? m.goals?.home ?? m.score1 ?? null;
       as_ = m.awayScore  ?? m.away_score  ?? m.score?.away  ??
-            m.goals?.away ?? m.score2 ?? m.result?.away ?? null;
+            m.score?.ft?.[1] ?? m.goals?.away ?? m.score2 ?? null;
     }
 
     return { home, away, homeScore: hs, awayScore: as_ };
@@ -783,18 +788,32 @@ async function fetchBDL() {
   return null;
 }
 
-// Try worldcup26.ir — free, no auth, CORS-friendly
+// Primary: openfootball on GitHub raw (free, no auth, no CORS issues)
+// Fallback: worldcup26.ir
 async function fetchFreeAPI() {
   const ck = 'free_matches';
   const cached = getCached(ck);
   if (cached) return cached;
 
+  // openfootball — confirmed working, no proxy needed
+  try {
+    const r = await fetchT(
+      'https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json',
+      {}, 9000
+    );
+    if (r.ok) {
+      const data = await r.json();
+      const parsed = parseResults(data, 'openfootball');
+      if (parsed.length > 0) { setCache(ck, parsed); return parsed; }
+    }
+  } catch {}
+
+  // Fallback: worldcup26.ir
   const urls = [
     'https://worldcup26.ir/get/games',
     'https://worldcup26.ir/get/matches',
     'https://worldcup26.ir/api/games',
   ];
-
   for (const url of urls) {
     try {
       const r = await fetchT(url, {}, 9000);
@@ -844,7 +863,7 @@ async function loadLive() {
     const freeResults = await fetchFreeAPI();
     if (freeResults && freeResults.length > 0) {
       S.results = freeResults;
-      S.apiSource = 'worldcup26.ir';
+      S.apiSource = 'openfootball / GitHub';
     } else {
       S.err = 'Live data unavailable. Check connection and try refreshing.';
     }
